@@ -18,7 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { of } from 'rxjs';
+import { SignOutAuthDto } from './dto/signout-auth.dto';
 export const storage = {
   storage: diskStorage({
     destination: './files/profileImage',
@@ -62,8 +62,12 @@ export class AuthController {
   signin(@Body() dto: SignInAuthDto) {
     return this.authService.signin(dto);
   }
-  @Get('signout')
-  signout() {
-    return this.authService.signout();
+  @Post('signout')
+  signout(@Body() dto: SignOutAuthDto) {
+    return this.authService.signout(dto);
   }
+  // @Post('refresh')
+  // refreshToken() {
+  //   return this.authService.refreshToken();
+  // }
 }
