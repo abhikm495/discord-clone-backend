@@ -9,6 +9,9 @@ import {
   Res,
   Req,
   BadRequestException,
+  UseGuards,
+  HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Request } from 'express';
@@ -18,7 +21,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { SignOutAuthDto } from './dto/signout-auth.dto';
+import { AtGuard } from 'src/common/guards';
+import { getCurrentUser } from 'src/common/decorators';
 export const storage = {
   storage: diskStorage({
     destination: './files/profileImage',
@@ -62,9 +66,12 @@ export class AuthController {
   signin(@Body() dto: SignInAuthDto) {
     return this.authService.signin(dto);
   }
+
+  @UseGuards(AtGuard)
   @Post('signout')
-  signout(@Body() dto: SignOutAuthDto) {
-    return this.authService.signout(dto);
+  @HttpCode(HttpStatus.OK)
+  signout(@getCurrentUser('userId') userId: number) {
+    return this.authService.signout(userId);
   }
   // @Post('refresh')
   // refreshToken() {

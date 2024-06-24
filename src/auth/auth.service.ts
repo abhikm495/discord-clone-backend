@@ -9,7 +9,6 @@ import { DatabaseService } from 'src/database/database.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { AT_SECRET, RT_SECRET } from '../utils/constants';
-import { SignOutAuthDto } from './dto/signout-auth.dto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -77,11 +76,13 @@ export class AuthService {
       },
     };
   }
-  async signout(dto: SignOutAuthDto) {
-    const { userId } = dto;
-    await this.databaseService.profile.update({
+  async signout(userId: number) {
+    await this.databaseService.profile.updateMany({
       where: {
         userId,
+        hashedRt: {
+          not: null,
+        },
       },
       data: {
         hashedRt: null,
