@@ -21,7 +21,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { AtGuard } from 'src/common/guards';
+import { AtGuard, RtGuard } from 'src/common/guards';
 import { getCurrentUser } from 'src/common/decorators';
 export const storage = {
   storage: diskStorage({
@@ -51,7 +51,7 @@ export class AuthController {
     const protocol = req.protocol;
     const host = req.get('host');
     const baseUrl = `${protocol}://${host}`;
-    const filePath = `${baseUrl}/auth/profile-image/${file.filename}`;
+    const filePath = `${baseUrl}/api/v1/auth/profile-image/${file.filename}`;
     return this.authService.signup(dto, filePath);
   }
 
@@ -73,8 +73,16 @@ export class AuthController {
   signout(@getCurrentUser('userId') userId: number) {
     return this.authService.signout(userId);
   }
-  // @Post('refresh')
-  // refreshToken() {
-  //   return this.authService.refreshToken();
-  // }
+
+  @UseGuards(RtGuard)
+  @Post('refresh')
+  refreshToken(@getCurrentUser('userId') userId: number) {
+    return this.authService.refreshToken(userId);
+  }
+
+  @UseGuards(AtGuard)
+  @Get('dummy')
+  dummy() {
+    return { data: 'this is protected data' };
+  }
 }

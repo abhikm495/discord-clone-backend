@@ -1,14 +1,14 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { SignUpAuthDto } from './dto/signup-auth.dto';
 import { SignInAuthDto } from './dto/signin-auth.dto';
 import { DatabaseService } from 'src/database/database.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { AT_SECRET, RT_SECRET } from '../utils/constants';
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class AuthService {
   constructor(
@@ -60,38 +60,41 @@ export class AuthService {
     }
     const isMatch = await this.comparePassword(password, user.hashedPassword);
     if (!isMatch) {
-      throw new BadRequestException('Password does not match');
+      throw new UnauthorizedException('Password does not match');
     }
     const token = await this.signToken({ userId: user.userId, email });
-    await this.updateRtHash(user.userId, token.refresh_token);
     return {
-      success: true,
-      message: 'Login successful',
-      data: {
-        userId: user.userId,
+      jwttoken: token.access_token,
+      refreshtoken: token.refresh_token,
+      user: {
+        id: user.userId,
         name: user.name,
         email: user.email,
-        access_token: token.access_token,
-        refresh_token: token.refresh_token,
+        image: user.imageUrl,
       },
     };
   }
   async signout(userId: number) {
-    await this.databaseService.profile.updateMany({
+    const updatedProfile = await this.databaseService.profile.updateMany({
       where: {
         userId,
-        hashedRt: {
+        secret: {
           not: null,
         },
       },
       data: {
-        hashedRt: null,
+        secret: null,
       },
     });
+    if (updatedProfile.count === 0) {
+      return {
+        success: false,
+        message: 'No active session found for this user',
+      };
+    }
     return {
       success: true,
       message: 'Sign out successful',
-      data: {},
     };
   }
 
@@ -103,49 +106,48 @@ export class AuthService {
     return await bcrypt.compare(password, hash);
   }
   async signToken(args: { userId: number; email: string }) {
+    const secret = uuidv4();
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(args, {
-        secret: AT_SECRET,
-        expiresIn: 60 * 15,
+        secret: secret,
+        expiresIn: 60 * 10,
       }),
       this.jwtService.signAsync(args, {
-        secret: RT_SECRET,
+        secret: secret,
         expiresIn: 60 * 60 * 24 * 7,
       }),
     ]);
+    await this.updateSecretKey(args.userId, secret);
     return {
       access_token: at,
       refresh_token: rt,
     };
   }
-  async refreshToken(userId: number, rt: string) {
+  async refreshToken(userId: number) {
     const user = await this.databaseService.profile.findUnique({
       where: {
         userId,
       },
     });
-    if (!user) {
-      throw new ForbiddenException('user not found ');
-    }
-    if (!user.hashedRt) {
-      throw new ForbiddenException('refresh token is null ');
-    }
-    const rtMatches = bcrypt.compare(user.hashedRt, rt);
-    if (!rtMatches) {
-      throw new ForbiddenException('refresh token does not match ');
-    }
     const token = await this.signToken({ userId, email: user.email });
-
-    return { token };
+    return {
+      access_token: token.access_token,
+      refresh_token: token.refresh_token,
+      user: {
+        id: user.userId,
+        name: user.name,
+        email: user.email,
+        image: user.imageUrl,
+      },
+    };
   }
-  async updateRtHash(userId: number, rt: string) {
-    const hashedRt = await bcrypt.hash(rt, 10);
+  async updateSecretKey(userId: number, secret: string) {
     await this.databaseService.profile.update({
       where: {
         userId,
       },
       data: {
-        hashedRt,
+        secret,
       },
     });
   }

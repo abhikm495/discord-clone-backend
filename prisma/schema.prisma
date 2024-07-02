@@ -17,7 +17,7 @@ model Profile{
   imageUrl String @db.Text
   email String @unique @db.Text
   hashedPassword String
-  hashedRt String?
+  secret String? @unique
   servers Server[]
   members Member[]
   channel Channel[] 

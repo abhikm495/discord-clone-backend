@@ -1,24 +1,41 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
-import { RT_SECRET } from 'src/utils/constants';
-import { Request } from 'express';
+import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
-export class RtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+export class RtStrategy extends PassportStrategy(Strategy, 'rt') {
+  constructor(private databaseService: DatabaseService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: RT_SECRET,
-      PassReqToCallBack: true,
+      secretOrKeyProvider: async (request, rawJwtToken, done) => {
+        try {
+          const payload = JSON.parse(
+            Buffer.from(rawJwtToken.split('.')[1], 'base64').toString(),
+          );
+          const user = await this.databaseService.profile.findUnique({
+            where: {
+              userId: payload.userId,
+            },
+          });
+          if (!user) {
+            return { message: 'user not found' };
+          }
+          if (!user.secret) {
+            return { message: 'session is not active for the user' };
+          }
+          console.log('secrets');
+          console.log(user.secret);
+
+          done(null, user.secret);
+        } catch (error) {
+          done(error, null);
+        }
+      },
     });
   }
 
-  async validate(req: Request, payload: any) {
-    const refreshToken = req.get('autthorization').replace('Bearer', '').trim();
-    return {
-      ...payload,
-      refreshToken,
-    };
+  async validate(payload: any) {
+    return payload;
   }
 }
