@@ -27,13 +27,13 @@ model Profile{
 }
 
 model Server{
-  id String @id @default(uuid())
-  name String
+  id Int @unique @default(autoincrement())
+  name String @unique
   imageUrl String @db.Text
   inviteCode String @db.Text
 
-  profileId String
-  profile Profile @relation(fields: [profileId],references: [id],onDelete: Cascade)
+  profileId Int
+  profile Profile @relation(fields: [profileId],references: [userId],onDelete: Cascade)
 
   members Member[]
   channels Channel[]
@@ -50,13 +50,13 @@ enum MemberRole{
 }
 
 model Member{
-  id String @id @default(uuid())
+  id Int @unique @default(autoincrement())
   role MemberRole @default(GUEST)
 
-  profileId String 
-  profile Profile @relation(fields: [profileId],references: [id],onDelete: Cascade)
+  profileId Int 
+  profile Profile @relation(fields: [profileId],references: [userId],onDelete: Cascade)
 
-  serverId String
+  serverId Int
   server Server @relation(fields: [serverId],references: [id],onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -73,14 +73,14 @@ enum ChannelType{
 }
 
 model Channel{
-  id String @id @default(uuid())
+  id Int @unique @default(autoincrement())
   name String
   type ChannelType @default(TEXT)
 
-  profileId String
-  profile Profile @relation(fields: [profileId],references: [id],onDelete: Cascade)
+  profileId Int
+  profile Profile @relation(fields: [profileId],references: [userId],onDelete: Cascade)
 
-  serverId String
+  serverId Int
   server Server @relation(fields: [serverId],references: [id],onDelete: Cascade)
 
   createdAt DateTime @default(now())

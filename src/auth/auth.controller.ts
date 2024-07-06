@@ -10,8 +10,6 @@ import {
   Req,
   BadRequestException,
   UseGuards,
-  HttpStatus,
-  HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Request } from 'express';
@@ -69,7 +67,6 @@ export class AuthController {
 
   @UseGuards(AtGuard)
   @Post('signout')
-  @HttpCode(HttpStatus.OK)
   signout(@getCurrentUser('userId') userId: number) {
     return this.authService.signout(userId);
   }
