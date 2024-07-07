@@ -56,4 +56,89 @@ export class ServersService {
       },
     };
   }
+  async getServer(id: number): Promise<GeneralResponse> {
+    const server = await this.databaseService.server.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        profileId: true,
+        name: true,
+        imageUrl: true,
+        inviteCode: true,
+        channels: {
+          select: {
+            id: true,
+            profileId: true,
+            serverId: true,
+            name: true,
+            type: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+        members: {
+          select: {
+            id: true,
+            profileId: true,
+            serverId: true,
+            role: true,
+            profile: {
+              select: {
+                id: true,
+                userId: true,
+                name: true,
+                imageUrl: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            role: 'asc',
+          },
+        },
+      },
+    });
+    if (!server) {
+      return {
+        success: false,
+        message: 'server not found',
+        data: {
+          server,
+        },
+      };
+    }
+    return {
+      success: true,
+      message: 'server found',
+      data: {
+        server,
+      },
+    };
+  }
+  async getUserServers(userId: number): Promise<GeneralResponse> {
+    const servers = await this.databaseService.server.findMany({
+      where: {
+        profileId: userId,
+      },
+    });
+    if (!servers) {
+      return {
+        success: false,
+        message: 'no servers found',
+        data: {
+          servers,
+        },
+      };
+    }
+    return {
+      success: false,
+      message: 'servers found',
+      data: {
+        servers,
+      },
+    };
+  }
 }

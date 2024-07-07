@@ -38,8 +38,8 @@ export class ServersController {
   constructor(private readonly serversService: ServersService) {}
 
   @UseGuards(AtGuard)
-  @UseInterceptors(FileInterceptor('file', storage))
   @Post()
+  @UseInterceptors(FileInterceptor('file', storage))
   create(
     @Req() req: Request,
     @Body() dto: CreateServerDto,
@@ -49,6 +49,7 @@ export class ServersController {
     if (!userId) {
       throw new BadRequestException('User not logged in or user not found');
     }
+
     if (!file) {
       throw new BadRequestException('Server image is required');
     }
@@ -72,18 +73,15 @@ export class ServersController {
     return this.serversService.getFirstServer(userId);
   }
 
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.serversService.findOne(+id);
-  // }
+  @UseGuards(AtGuard)
+  @Get('server/:id')
+  server(@Param('id') id: string) {
+    return this.serversService.getServer(+id);
+  }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateServerDto: UpdateServerDto) {
-  //   return this.serversService.update(+id, updateServerDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.serversService.remove(+id);
-  // }
+  @UseGuards(AtGuard)
+  @Get('user')
+  userServers(@getCurrentUser('userId') userId: number) {
+    return this.serversService.getUserServers(userId);
+  }
 }
