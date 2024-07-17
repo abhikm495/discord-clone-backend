@@ -107,10 +107,11 @@ export class AuthService {
   }
   async signToken(args: { userId: number; email: string }) {
     const secret = uuidv4();
+
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(args, {
         secret: secret,
-        expiresIn: 60 * 60 * 24,
+        expiresIn: 60 * 60 * 60 * 7,
       }),
       this.jwtService.signAsync(args, {
         secret: secret,
@@ -131,8 +132,8 @@ export class AuthService {
     });
     const token = await this.signToken({ userId, email: user.email });
     return {
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
+      jwttoken: token.access_token,
+      refreshtoken: token.refresh_token,
       user: {
         id: user.userId,
         name: user.name,

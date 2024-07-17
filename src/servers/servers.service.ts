@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateServerDto } from './dto/create-server.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -56,11 +60,9 @@ export class ServersService {
       },
     };
   }
-  async getServer(id: number): Promise<GeneralResponse> {
+  async getServer(id: number, userId: number): Promise<GeneralResponse> {
     const server = await this.databaseService.server.findUnique({
-      where: {
-        id,
-      },
+      where: { id },
       select: {
         id: true,
         profileId: true,
@@ -80,6 +82,9 @@ export class ServersService {
           },
         },
         members: {
+          where: {
+            profileId: userId,
+          },
           select: {
             id: true,
             profileId: true,
@@ -95,26 +100,29 @@ export class ServersService {
               },
             },
           },
-          orderBy: {
-            role: 'asc',
-          },
+        },
+        _count: {
+          select: { members: true },
         },
       },
     });
+
     if (!server) {
-      return {
-        success: false,
-        message: 'server not found',
-        data: {
-          server,
-        },
-      };
+      throw new NotFoundException('Server not found');
     }
+
+    if (server._count.members > 0 && server.members.length === 0) {
+      throw new ForbiddenException('You are not a member of this server');
+    }
+
+    // Remove the _count field before returning
+    const { ...serverData } = server;
+
     return {
       success: true,
-      message: 'server found',
+      message: 'Server found',
       data: {
-        server,
+        server: serverData,
       },
     };
   }

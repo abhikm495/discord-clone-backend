@@ -24,9 +24,6 @@ export class RtStrategy extends PassportStrategy(Strategy, 'rt') {
           if (!user.secret) {
             return { message: 'session is not active for the user' };
           }
-          console.log('secrets');
-          console.log(user.secret);
-
           done(null, user.secret);
         } catch (error) {
           done(error, null);

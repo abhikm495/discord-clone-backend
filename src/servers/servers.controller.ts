@@ -75,8 +75,8 @@ export class ServersController {
 
   @UseGuards(AtGuard)
   @Get('server/:id')
-  server(@Param('id') id: string) {
-    return this.serversService.getServer(+id);
+  server(@getCurrentUser('userId') userId: number, @Param('id') id: string) {
+    return this.serversService.getServer(+id, userId);
   }
 
   @UseGuards(AtGuard)
