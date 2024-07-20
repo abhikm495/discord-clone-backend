@@ -10,6 +10,8 @@ import {
   Req,
   Res,
   UseGuards,
+  Patch,
+  Query,
 } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { CreateServerDto } from './dto/create-server.dto';
@@ -21,6 +23,7 @@ import { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from 'src/common/decorators';
 import { AtGuard } from 'src/common/guards';
+import { UpdateMemberDto } from './dto/update-member.dto';
 export const storage = {
   storage: diskStorage({
     destination: './files/serverImage',
@@ -60,6 +63,25 @@ export class ServersController {
     const filePath = `${baseUrl}/api/v1/servers/server-image/${file.filename}`;
     return this.serversService.create(dto, filePath, userId);
   }
+  @UseGuards(AtGuard)
+  @Patch(':serverId')
+  @UseInterceptors(FileInterceptor('file', storage))
+  updateServer(
+    @Req() req: Request,
+    @Body() dto: CreateServerDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Param('serverId') serverId: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Server image is required');
+    }
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+    const filePath = `${baseUrl}/api/v1/servers/server-image/${file.filename}`;
+    return this.serversService.updateServer(dto, filePath, +serverId);
+  }
+
   @Get('server-image/:imagename')
   getProfileImage(@Param('imagename') imagename: string, @Res() res) {
     return res.sendFile(
@@ -83,5 +105,35 @@ export class ServersController {
   @Get('user')
   userServers(@getCurrentUser('userId') userId: number) {
     return this.serversService.getUserServers(userId);
+  }
+  @UseGuards(AtGuard)
+  @Patch(':serverId/invite-code')
+  updateInviteCode(
+    @Param('serverId') serverId: number,
+    @getCurrentUser('userId') userId: number,
+  ) {
+    return this.serversService.updateInviteCode(+serverId, userId);
+  }
+
+  @UseGuards(AtGuard)
+  @Patch('/invite/:inviteCode')
+  addMember(
+    @Param('inviteCode') inviteCode: string,
+    @getCurrentUser('userId') userId: number,
+  ) {
+    return this.serversService.addMember(inviteCode, userId);
+  }
+
+  @UseGuards(AtGuard)
+  @Patch('/members/:memberId')
+  updateMember(
+    @Param('memberId') memberId: string,
+    @Query('serverId') serverId: string,
+    @getCurrentUser('userId') userId: number,
+    @Body() dto: UpdateMemberDto,
+  ) {
+    console.log('BE SERVER', serverId);
+
+    return this.serversService.updateMember(+memberId, +serverId, userId, dto);
   }
 }

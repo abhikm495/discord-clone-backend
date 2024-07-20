@@ -1,13 +1,15 @@
 import {
-  ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateServerDto } from './dto/create-server.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { v4 as uuidv4 } from 'uuid';
-import { MemberRole } from '@prisma/client';
+import { MemberRole, Prisma } from '@prisma/client';
 import { GeneralResponse } from 'src/schema/generalResponseSchema';
+import { UpdateMemberDto } from './dto/update-member.dto';
+
 @Injectable()
 export class ServersService {
   constructor(private databaseService: DatabaseService) {}
@@ -40,7 +42,11 @@ export class ServersService {
   async getFirstServer(userId: number): Promise<GeneralResponse> {
     const server = await this.databaseService.server.findFirst({
       where: {
-        profileId: userId,
+        members: {
+          some: {
+            profileId: userId,
+          },
+        },
       },
     });
     if (!server) {
@@ -61,75 +67,64 @@ export class ServersService {
     };
   }
   async getServer(id: number, userId: number): Promise<GeneralResponse> {
-    const server = await this.databaseService.server.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        profileId: true,
-        name: true,
-        imageUrl: true,
-        inviteCode: true,
-        channels: {
-          select: {
-            id: true,
-            profileId: true,
-            serverId: true,
-            name: true,
-            type: true,
-          },
-          orderBy: {
-            createdAt: 'asc',
-          },
-        },
-        members: {
-          where: {
-            profileId: userId,
-          },
-          select: {
-            id: true,
-            profileId: true,
-            serverId: true,
-            role: true,
-            profile: {
-              select: {
-                id: true,
-                userId: true,
-                name: true,
-                imageUrl: true,
-                email: true,
-              },
+    try {
+      const server = await this.databaseService.server.findUnique({
+        where: {
+          id,
+          members: {
+            some: {
+              profileId: userId,
             },
           },
         },
-        _count: {
-          select: { members: true },
+        include: {
+          members: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+            include: {
+              profile: true,
+            },
+          },
+          channels: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
         },
-      },
-    });
+      });
 
-    if (!server) {
-      throw new NotFoundException('Server not found');
+      if (!server) {
+        throw new NotFoundException('Server not found');
+      }
+      return {
+        success: true,
+        message: 'Server found',
+        data: {
+          server: server,
+        },
+      };
+    } catch (error) {
+      console.log(error);
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Server not found');
+        }
+      }
+      console.error('Error updating Member:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
     }
-
-    if (server._count.members > 0 && server.members.length === 0) {
-      throw new ForbiddenException('You are not a member of this server');
-    }
-
-    // Remove the _count field before returning
-    const { ...serverData } = server;
-
-    return {
-      success: true,
-      message: 'Server found',
-      data: {
-        server: serverData,
-      },
-    };
   }
   async getUserServers(userId: number): Promise<GeneralResponse> {
     const servers = await this.databaseService.server.findMany({
       where: {
-        profileId: userId,
+        members: {
+          some: {
+            profileId: userId,
+          },
+        },
       },
     });
     if (!servers) {
@@ -142,11 +137,185 @@ export class ServersService {
       };
     }
     return {
-      success: false,
+      success: true,
       message: 'servers found',
       data: {
         servers,
       },
     };
+  }
+  async updateInviteCode(
+    serverId: number,
+    userId: number,
+  ): Promise<GeneralResponse> {
+    const newInviteCode = uuidv4();
+    const server = await this.databaseService.server.update({
+      where: {
+        id: serverId,
+        profileId: userId,
+      },
+      data: {
+        inviteCode: newInviteCode,
+      },
+    });
+    if (!server) throw new NotFoundException('Invite code is invalid');
+    if (server) {
+      return {
+        data: newInviteCode,
+        message: 'New invite code generated',
+        success: true,
+      };
+    }
+  }
+  async addMember(
+    inviteCode: string,
+    userId: number,
+  ): Promise<GeneralResponse> {
+    try {
+      const exists = await this.databaseService.server.findUnique({
+        where: {
+          inviteCode,
+          members: {
+            some: {
+              profileId: userId,
+            },
+          },
+        },
+      });
+      if (exists) {
+        return {
+          data: exists.id.toString(),
+          message: 'You are already a part of this server',
+          success: true,
+        };
+      }
+      const server = await this.databaseService.server.update({
+        where: {
+          inviteCode,
+        },
+        data: {
+          members: {
+            create: {
+              profileId: userId,
+            },
+          },
+        },
+      });
+
+      return {
+        data: server.id.toString(),
+        message: 'You are now a member of this server',
+        success: true,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          // Unique constraint violation, user is already a member
+          return {
+            data: null,
+            message: 'You are already a part of this server',
+            success: true,
+          };
+        } else if (error.code === 'P2025') {
+          // Record not found, invalid invite code
+          throw new NotFoundException('Invite code is invalid');
+        }
+      }
+      console.error('Error in addMember:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
+  }
+  async updateServer(
+    dto: CreateServerDto,
+    filePath: string,
+    serverId: number,
+  ): Promise<GeneralResponse> {
+    try {
+      await this.databaseService.server.update({
+        where: {
+          id: serverId,
+        },
+        data: {
+          name: dto.name,
+          imageUrl: filePath,
+        },
+      });
+      return {
+        data: '',
+        message: 'Server updated successfuly',
+        success: true,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid invite code
+          throw new NotFoundException('Server not found');
+        }
+      }
+      console.error('Error updating server:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
+  }
+  async updateMember(
+    memberId: number,
+    serverId: number,
+    userId: number,
+    dto: UpdateMemberDto,
+  ): Promise<GeneralResponse> {
+    try {
+      const server = await this.databaseService.server.update({
+        where: {
+          id: serverId,
+        },
+        data: {
+          members: {
+            update: {
+              where: {
+                id: memberId,
+                profileId: {
+                  not: userId,
+                },
+              },
+              data: {
+                role: dto.role,
+              },
+            },
+          },
+        },
+        include: {
+          members: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+            include: {
+              profile: true,
+            },
+          },
+          channels: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+        },
+      });
+      if (server) {
+        return {
+          data: { server: server },
+          message: 'Member`s role updated successfully',
+          success: true,
+        };
+      }
+    } catch (error) {
+      console.log(error);
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Server not found');
+        }
+      }
+      console.error('Error updating Member:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
   }
 }
