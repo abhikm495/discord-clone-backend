@@ -11,7 +11,7 @@ import {
   Res,
   UseGuards,
   Patch,
-  Query,
+  Delete,
 } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { CreateServerDto } from './dto/create-server.dto';
@@ -23,7 +23,6 @@ import { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from 'src/common/decorators';
 import { AtGuard } from 'src/common/guards';
-import { UpdateMemberDto } from './dto/update-member.dto';
 export const storage = {
   storage: diskStorage({
     destination: './files/serverImage',
@@ -125,15 +124,11 @@ export class ServersController {
   }
 
   @UseGuards(AtGuard)
-  @Patch('/members/:memberId')
-  updateMember(
-    @Param('memberId') memberId: string,
-    @Query('serverId') serverId: string,
+  @Delete(':serverId')
+  deleteServer(
+    @Param('serverId') serverId: string,
     @getCurrentUser('userId') userId: number,
-    @Body() dto: UpdateMemberDto,
   ) {
-    console.log('BE SERVER', serverId);
-
-    return this.serversService.updateMember(+memberId, +serverId, userId, dto);
+    return this.serversService.deleteServer(+serverId, userId);
   }
 }

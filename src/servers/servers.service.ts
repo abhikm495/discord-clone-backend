@@ -8,7 +8,6 @@ import { DatabaseService } from 'src/database/database.service';
 import { v4 as uuidv4 } from 'uuid';
 import { MemberRole, Prisma } from '@prisma/client';
 import { GeneralResponse } from 'src/schema/generalResponseSchema';
-import { UpdateMemberDto } from './dto/update-member.dto';
 
 @Injectable()
 export class ServersService {
@@ -93,7 +92,6 @@ export class ServersService {
           },
         },
       });
-
       if (!server) {
         throw new NotFoundException('Server not found');
       }
@@ -105,15 +103,14 @@ export class ServersService {
         },
       };
     } catch (error) {
-      console.log(error);
+      console.log('error in getting server', error);
 
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          // Record not found, invalid server id
-          throw new NotFoundException('Server not found');
-        }
+      if (error instanceof NotFoundException) {
+        // Re-throw NotFoundException (which includes the case where user is not a member)
+        throw new NotFoundException(
+          'Server not found or you are not a member of this server',
+        );
       }
-      console.error('Error updating Member:', error);
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
@@ -256,55 +253,23 @@ export class ServersService {
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
-  async updateMember(
-    memberId: number,
+
+  async deleteServer(
     serverId: number,
     userId: number,
-    dto: UpdateMemberDto,
   ): Promise<GeneralResponse> {
     try {
-      const server = await this.databaseService.server.update({
+      await this.databaseService.server.delete({
         where: {
           id: serverId,
-        },
-        data: {
-          members: {
-            update: {
-              where: {
-                id: memberId,
-                profileId: {
-                  not: userId,
-                },
-              },
-              data: {
-                role: dto.role,
-              },
-            },
-          },
-        },
-        include: {
-          members: {
-            orderBy: {
-              createdAt: 'asc',
-            },
-            include: {
-              profile: true,
-            },
-          },
-          channels: {
-            orderBy: {
-              createdAt: 'asc',
-            },
-          },
+          profileId: userId,
         },
       });
-      if (server) {
-        return {
-          data: { server: server },
-          message: 'Member`s role updated successfully',
-          success: true,
-        };
-      }
+      return {
+        data: '',
+        message: 'Server Deleted successfully',
+        success: true,
+      };
     } catch (error) {
       console.log(error);
 
@@ -314,7 +279,7 @@ export class ServersService {
           throw new NotFoundException('Server not found');
         }
       }
-      console.error('Error updating Member:', error);
+      console.error('Error kicking Member:', error);
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
