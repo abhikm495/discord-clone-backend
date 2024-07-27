@@ -25,7 +25,7 @@ export class MembersController {
   @UseGuards(AtGuard)
   @Patch(':memberId')
   updateMember(
-    @Param('memberId') memberId: string,
+    @Param('memberId') memberId: string,// hello there
     @Query('serverId') serverId: string,
     @getCurrentUser('userId') userId: number,
     @Body() dto: UpdateMemberDto,
