@@ -78,16 +78,124 @@ export class ChannelsService {
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
-
-  findAll() {
-    return `This action returns all channels`;
+  async deleteChannel(
+    serverId: number,
+    channelId: number,
+    userId: number,
+  ): Promise<GeneralResponse> {
+    try {
+      const server = await this.databaseService.server.update({
+        where: {
+          id: serverId,
+          members: {
+            some: {
+              profileId: userId,
+              role: {
+                in: [MemberRole.ADMIN, MemberRole.MODERATOR],
+              },
+            },
+          },
+        },
+        data: {
+          channels: {
+            delete: {
+              id: channelId,
+              name: {
+                not: 'general',
+              },
+            },
+          },
+        },
+      });
+      if (server) {
+        return {
+          data: '',
+          message: 'Channel deleted successfully',
+          success: true,
+        };
+      }
+    } catch (error) {
+      console.log('delete channel error', error);
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Channel not found');
+        }
+      }
+      console.error('Error deleting channel:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
   }
-
-  findOne(id: number) {
-    return `This action returns a #${id} channel`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} channel`;
+  async editChannel(
+    serverId: number,
+    channelId: number,
+    userId: number,
+    dto: CreateChannelDto,
+  ): Promise<GeneralResponse> {
+    try {
+      const server = await this.databaseService.server.update({
+        where: {
+          id: serverId,
+          members: {
+            some: {
+              profileId: userId,
+              role: {
+                in: [MemberRole.ADMIN, MemberRole.MODERATOR],
+              },
+            },
+          },
+        },
+        data: {
+          channels: {
+            update: {
+              where: {
+                id: channelId,
+                name: {
+                  not: 'general',
+                },
+              },
+              data: {
+                name: dto.name,
+                type: dto.type,
+              },
+            },
+          },
+        },
+        include: {
+          members: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+            include: {
+              profile: true,
+            },
+          },
+          channels: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+        },
+      });
+      if (server) {
+        return {
+          data: {
+            server: server,
+          },
+          message: 'Channel edited successfully',
+          success: true,
+        };
+      }
+    } catch (error) {
+      console.log('edit channel error', error);
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Channel not found');
+        }
+      }
+      console.error('Error editing channel:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
   }
 }

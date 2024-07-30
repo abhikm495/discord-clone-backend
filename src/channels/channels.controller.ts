@@ -1,6 +1,5 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
   // Patch,
@@ -8,6 +7,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  Patch,
 } from '@nestjs/common';
 import { ChannelsService } from './channels.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
@@ -29,23 +29,23 @@ export class ChannelsController {
     return this.channelsService.create(dto, +serverId, userId);
   }
 
-  @Get()
-  findAll() {
-    return this.channelsService.findAll();
+  @UseGuards(AtGuard)
+  @Patch(':channelId')
+  update(
+    @Param('channelId') channelId: string,
+    @Query('serverId') serverId: string,
+    @getCurrentUser('userId') userId: number,
+    @Body() dto: CreateChannelDto,
+  ) {
+    return this.channelsService.editChannel(+serverId, +channelId, userId, dto);
   }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.channelsService.findOne(+id);
-  }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateChannelDto: UpdateChannelDto) {
-  //   return this.channelsService.update(+id, updateChannelDto);
-  // }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.channelsService.remove(+id);
+  @UseGuards(AtGuard)
+  @Delete(':channelId')
+  deleteChannel(
+    @Param('channelId') channelId: string,
+    @Query('serverId') serverId: string,
+    @getCurrentUser('userId') userId: number,
+  ) {
+    return this.channelsService.deleteChannel(+serverId, +channelId, userId);
   }
 }

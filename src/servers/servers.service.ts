@@ -39,31 +39,45 @@ export class ServersService {
     };
   }
   async getFirstServer(userId: number): Promise<GeneralResponse> {
-    const server = await this.databaseService.server.findFirst({
-      where: {
-        members: {
-          some: {
-            profileId: userId,
+    try {
+      const server = await this.databaseService.server.findFirst({
+        where: {
+          members: {
+            some: {
+              profileId: userId,
+            },
           },
         },
-      },
-    });
-    if (!server) {
+        include: {
+          channels: {
+            where: {
+              name: 'general',
+            },
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+        },
+      });
+      if (!server) {
+        throw new NotFoundException('Channel not found ');
+      }
       return {
-        success: false,
-        message: 'You are not part of any server',
+        success: true,
+        message: 'first server found',
         data: {
-          serverId: 0,
+          serverId: server.channels[0],
         },
       };
+    } catch (error) {
+      console.log('error in getting first server channel', error);
+
+      if (error instanceof NotFoundException) {
+        // Re-throw NotFoundException (which includes the case where user is not a member)
+        throw new NotFoundException('Channel not found ');
+      }
+      throw new InternalServerErrorException('An unexpected error occurred');
     }
-    return {
-      success: true,
-      message: 'first server found',
-      data: {
-        serverId: server.id,
-      },
-    };
   }
   async getServer(id: number, userId: number): Promise<GeneralResponse> {
     try {
@@ -120,6 +134,13 @@ export class ServersService {
         members: {
           some: {
             profileId: userId,
+          },
+        },
+      },
+      include: {
+        channels: {
+          where: {
+            name: 'general',
           },
         },
       },
