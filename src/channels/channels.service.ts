@@ -198,4 +198,32 @@ export class ChannelsService {
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
+  async getChannel(channelId: number): Promise<GeneralResponse> {
+    try {
+      const channel = await this.databaseService.channel.findUnique({
+        where: {
+          id: channelId,
+        },
+      });
+      if (channel) {
+        return {
+          data: {
+            channel: channel,
+          },
+          message: 'Channel Fetched successfully',
+          success: true,
+        };
+      }
+    } catch (error) {
+      console.log('get channel error', error);
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Channel not found');
+        }
+      }
+      console.error('Error getting channel:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
+  }
 }

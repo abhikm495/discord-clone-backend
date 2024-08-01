@@ -174,4 +174,38 @@ export class MembersService {
       throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
+  async getActiveMember(
+    serverId: number,
+    userId: number,
+  ): Promise<GeneralResponse> {
+    try {
+      const member = await this.databaseService.member.findFirst({
+        where: {
+          serverId: serverId,
+          profileId: userId,
+        },
+        include: {
+          profile: true,
+        },
+      });
+      return {
+        success: true,
+        message: 'Member found',
+        data: {
+          member: member,
+        },
+      };
+    } catch (error) {
+      console.log(error);
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found, invalid server id
+          throw new NotFoundException('Server not found');
+        }
+      }
+      console.error('Error kicking Member:', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
+    }
+  }
 }

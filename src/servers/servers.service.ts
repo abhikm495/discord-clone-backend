@@ -66,7 +66,7 @@ export class ServersService {
         success: true,
         message: 'first server found',
         data: {
-          serverId: server.channels[0],
+          channel: server.channels[0],
         },
       };
     } catch (error) {

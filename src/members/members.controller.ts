@@ -10,6 +10,7 @@ import {
   Query,
   Body,
   Patch,
+  Get,
 } from '@nestjs/common';
 import { MembersService } from './members.service';
 // import { CreateMemberDto } from './dto/create-member.dto';
@@ -48,5 +49,14 @@ export class MembersController {
     @getCurrentUser('userId') userId: number,
   ) {
     return this.membersService.leaveServer(+serverId, userId);
+  }
+
+  @UseGuards(AtGuard)
+  @Get(':serverId')
+  getActiveMember(
+    @Param('serverId') serverId: string,
+    @getCurrentUser('userId') userId: number,
+  ) {
+    return this.membersService.getActiveMember(+serverId, userId);
   }
 }

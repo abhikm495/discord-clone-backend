@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Patch,
+  Get,
 } from '@nestjs/common';
 import { ChannelsService } from './channels.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
@@ -27,6 +28,12 @@ export class ChannelsController {
     @Query('serverId') serverId: string,
   ) {
     return this.channelsService.create(dto, +serverId, userId);
+  }
+
+  @UseGuards(AtGuard)
+  @Get(':channelId')
+  getChannel(@Param('channelId') channelId: string) {
+    return this.channelsService.getChannel(+channelId);
   }
 
   @UseGuards(AtGuard)
